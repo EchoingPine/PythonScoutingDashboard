@@ -1,12 +1,8 @@
-import gspread
 import pandas as pd
 import sqlite3
 import streamlit as st
 import plotly.graph_objects as go
-import matplotlib.cm as cm
 import matplotlib.colors as mc
-import matplotlib
-from google.oauth2.service_account import Credentials
 
 
 conn = sqlite3.connect("Scouting_Data.db")
