@@ -148,7 +148,6 @@ elif dataType.lower() == "bubble chart":
     xAxis = st.sidebar.selectbox("X-Axis", ['Select X-Axis'] + df.columns.tolist())
     yAxis = st.sidebar.selectbox("Y-Axis", ['Select Y-Axis'] + df.columns.tolist())
 
-    # Create figure
     fig = go.Figure()
 
     if xAxis == 'Select X-Axis' or yAxis == 'Select Y-Axis':
