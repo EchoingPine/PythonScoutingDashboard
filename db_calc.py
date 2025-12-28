@@ -55,7 +55,6 @@ def perform_calculations():
     data = worksheet.get_all_records()
     df = pd.DataFrame(data)
 
-    # Calculate scores
     df['Auto Score'] = pd.DataFrame(
         {col: df[col].fillna(0) * weight for col, weight in auto_scores.items()}
     ).sum(axis=1)
@@ -118,7 +117,7 @@ def perform_calculations():
         .merge(teleop_avg, on='Team Number')
     )
 
-    # Reorder columns
+
     calc_df = calc_df[
         ['Team Number', 'Auto Coral AVG', 'Auto Score AVG', 'Teleop Net Algae AVG', 'Teleop Processor Algae AVG', 'Teleop Coral AVG', 'Teleop Score AVG', 'Climb Score AVG', 'Total Score AVG']
     ]
