@@ -3,6 +3,7 @@ import sqlite3
 import streamlit as st
 import plotly.graph_objects as go
 import matplotlib.colors as mc
+import db_calc as db
 
 
 conn = sqlite3.connect("Scouting_Data.db")
@@ -20,12 +21,29 @@ def retrieve_data(data_type, team_number, match_number=None):
     cursor.execute(query, params)
     return cursor.fetchall()
 
+def color_alliance(row):
+    if row["Position"].startswith("RED"):
+        return ["background-color: rgba(255, 0, 0, 0.15)"] * len(row)
+    elif row["Position"].startswith("BLUE"):
+        return ["background-color: rgba(0, 100, 255, 0.15)"] * len(row)
+    return [""] * len(row)
+
 
 def plot_team_scores(team_number, show_table=False):
     team_data = pd.read_sql(
         f"SELECT * FROM Scouting_Data WHERE `Team Number` = {team_number} ORDER BY `Team Match Number` ASC",
         conn
     )
+
+    pit_data = pd.read_sql(
+        f'SELECT * FROM "Pit Scouting" WHERE "Team #" = {team_number}',
+        conn
+    )
+
+    ucolumns = ['Timestamp' ,'Name(s)', 'Team #', 'Climb', 'Processor Auto', 'Barge Auto', 'Center auto', 'Auto Leave', 'Pictures']
+    pit_data.drop(columns=ucolumns, inplace=True)
+
+    pit_data = pit_data.transpose()
 
     fig = go.Figure()
     fig.add_trace(
@@ -47,12 +65,12 @@ def plot_team_scores(team_number, show_table=False):
     st.plotly_chart(fig, width="stretch")
     if show_table:
         st.dataframe(team_data)
+        st.dataframe(pit_data)
 
+if st.sidebar.button("Refresh Values"):
+    db.perform_calculations()
 dataType = st.sidebar.selectbox("View", ["Single Team", "Compare", "Averages", "Match Reference", "Bubble Chart"])
-AutoCols = ['Auto Coral AVG', 'Auto Score AVG']
 
-averageMatchScore = 0
-averageScore = 0
 
 if dataType.lower() == "single team":
     try:
@@ -98,17 +116,17 @@ elif dataType.lower() == "compare":
 elif dataType.lower() == "averages":
     df = pd.read_sql("SELECT * FROM Calcs", conn)
 
-    AutoColors = ["#010014", "#252525"]
+    AutoColors = ["#252525", "#010014"]
     AutoCmap = mc.LinearSegmentedColormap.from_list("BlueGray", AutoColors)
-    TeleopColors = ["#301500", "#252525"]
+    TeleopColors = ["#252525", "#301500"]
     TeleopCmap = mc.LinearSegmentedColormap.from_list("OrangeGray", TeleopColors)
-    EndgameColors = ["#302d00", "#252525"]
+    EndgameColors = ["#252525", "#302d00"]
     EndgameCmap = mc.LinearSegmentedColormap.from_list("YellowGray", EndgameColors)
-    TotalColors = ["#003003", "#252525"]
+    TotalColors = ["#252525", "#003003"]
     TotalCmap = mc.LinearSegmentedColormap.from_list("GreenGray", TotalColors)
 
     AutoCols = ['Auto Coral AVG', 'Auto Score AVG']
-    TeleopCols = ['Teleop Net Algae AVG', 'Teleop Processor Algae AVG', 'Teleop Score AVG']
+    TeleopCols = ['Teleop Net Algae AVG', 'Teleop Processor Algae AVG', 'Teleop Score AVG', 'Teleop Coral AVG']
     EndgameCols = ['Climb Score AVG']
     TotalCols = ['Total Score AVG']
     ScoringCols = ['Auto Coral AVG', 'Auto Score AVG', 'Teleop Net Algae AVG', 'Teleop Processor Algae AVG' ,'Teleop Score AVG', 'Climb Score AVG', 'Total Score AVG']
@@ -120,22 +138,71 @@ elif dataType.lower() == "match reference":
     try:
         matchNumber = int(st.sidebar.text_input("Match Number", "1"))
     except ValueError:
-        st.error("Please enter a valid integer team number.")
+        st.error("Please enter a valid integer match number.")
         st.stop()
 
-    teams_df = pd.read_sql(
-        'SELECT DISTINCT "Team Number" FROM "Scouting_Data" WHERE "Match Number" = ?',
+    test_df = pd.read_sql(
+        'SELECT "red1", "blue1", "red2", "blue2", "red3", "blue3" FROM "TBA Data" WHERE "match_number" = ? AND "comp_level" = "qm"',
         conn,
         params=(matchNumber,)
     )
+
+    try:
+        row = test_df.iloc[0]
+    except IndexError:
+        st.error(f"Please enter a valid match number.")
+        st.stop()
+
+    position_map = {
+        row["red1"]: "RED 1",
+        row["red2"]: "RED 2",
+        row["red3"]: "RED 3",
+        row["blue1"]: "BLUE 1",
+        row["blue2"]: "BLUE 2",
+        row["blue3"]: "BLUE 3",
+    }
+
+    positions_df = (
+        test_df
+        .iloc[0]
+        .reset_index()
+    )
+
+    positions_df.columns = ["Position", "Team Number"]
+
+    teams_df = (
+        test_df
+        .melt(value_name="Team Number")["Team Number"]
+        .dropna()
+        .to_frame()
+    )
+
+    teams_df["Position"] = teams_df["Team Number"].map(position_map)
 
     avg_scores_df = pd.read_sql(
         'SELECT "Team Number", "Auto Score AVG", "Teleop Score AVG", "Climb Score AVG", "Total Score AVG" FROM "Calcs"',
         conn
     )
 
-    result_df = teams_df.merge(avg_scores_df, on="Team Number", how="left")
+    result_df = (
+        teams_df
+        .merge(avg_scores_df, on="Team Number", how="left")
+    )
 
+
+    result_df['Team Number'].astype(str)
+    result_df["Position"] = result_df["Position"].str.upper()
+    result_df["Alliance"] = result_df["Position"].str[:4]
+    result_df["Slot"] = result_df["Position"].str[-1]
+    result_df.sort_values(by=["Alliance"], inplace=True)
+
+    numeric_columns = ["Auto Score AVG", "Teleop Score AVG", "Climb Score AVG", "Total Score AVG"]
+
+    result_df = result_df.style.apply(color_alliance, axis=1).format("{:.2f}", subset=numeric_columns)
+
+    header = f"Match {matchNumber}"
+
+    st.header(header)
     st.dataframe(result_df)
 
 elif dataType.lower() == "bubble chart":

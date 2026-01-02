@@ -34,7 +34,6 @@ teleop_scores = {
 
 def write_to_db(dataframe, table_name):
     conn = sqlite3.connect("Scouting_Data.db")
-    cursor = conn.cursor()
     dataframe.to_sql(table_name, conn, if_exists="replace", index=False)
     conn.close()
 
@@ -50,9 +49,12 @@ def perform_calculations():
 
     gc = gspread.authorize(creds)
     spreadsheet = gc.open("Copy of NEW AMAZONG 2025 SCOUTING DASHBOARD!!!! (dcmp data)")
-    worksheet = spreadsheet.worksheet("Data Entry")
-    data = worksheet.get_all_records()
-    df = pd.DataFrame(data)
+    mdata_worksheet = spreadsheet.worksheet("Data Entry")
+    pdata_worksheet = spreadsheet.worksheet("Pit Scouting")
+    mdata = mdata_worksheet.get_all_records()
+    pdata = pdata_worksheet.get_all_records()
+    df = pd.DataFrame(mdata)
+    pdata_df = pd.DataFrame(pdata)
 
     df['Auto Score'] = pd.DataFrame(
         {col: df[col].fillna(0) * weight for col, weight in auto_scores.items()}
@@ -123,9 +125,14 @@ def perform_calculations():
 
     calc_df = calc_df.round(2)
 
+    tba_df = pd.read_csv("2025necmp2_schedule.csv", header=0)
+
+    write_to_db(tba_df, "TBA Data")
 
     write_to_db(calc_df, "Calcs")
 
     write_to_db(df, "Scouting_Data")
+
+    write_to_db(pdata_df, "Pit Scouting")
 
 perform_calculations()
