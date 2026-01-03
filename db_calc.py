@@ -103,6 +103,8 @@ def perform_calculations():
     calc_df = df.groupby('Team Number', as_index=False).agg(
         **{
             'Auto Score AVG': ('Auto Score', 'mean'),
+            'Auto Net Algae AVG': ('Auto NET', 'mean'),
+            'Auto Processor Algae AVG': ('Auto PROCESSOR', 'mean'),
             'Teleop Net Algae AVG': ('NET', 'mean'),
             'Teleop Processor Algae AVG': ('PROCESSOR', 'mean'),
             'Teleop Score AVG': ('Teleop Score', 'mean'),
@@ -120,7 +122,7 @@ def perform_calculations():
 
 
     calc_df = calc_df[
-        ['Team Number', 'Auto Coral AVG', 'Auto Score AVG', 'Teleop Net Algae AVG', 'Teleop Processor Algae AVG', 'Teleop Coral AVG', 'Teleop Score AVG', 'Climb Score AVG', 'Total Score AVG']
+        ['Team Number', 'Auto Net Algae AVG', 'Auto Processor Algae AVG', 'Auto Coral AVG', 'Auto Score AVG', 'Teleop Net Algae AVG', 'Teleop Processor Algae AVG', 'Teleop Coral AVG', 'Teleop Score AVG', 'Climb Score AVG', 'Total Score AVG']
     ]
 
     calc_df = calc_df.round(2)

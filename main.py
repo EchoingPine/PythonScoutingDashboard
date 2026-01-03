@@ -34,16 +34,9 @@ def plot_team_scores(team_number, show_table=False):
         f"SELECT * FROM Scouting_Data WHERE `Team Number` = {team_number} ORDER BY `Team Match Number` ASC",
         conn
     )
-
-    pit_data = pd.read_sql(
-        f'SELECT * FROM "Pit Scouting" WHERE "Team #" = {team_number}',
-        conn
-    )
-
-    ucolumns = ['Timestamp' ,'Name(s)', 'Team #', 'Climb', 'Processor Auto', 'Barge Auto', 'Center auto', 'Auto Leave', 'Pictures']
-    pit_data.drop(columns=ucolumns, inplace=True)
-
-    pit_data = pit_data.transpose()
+    if team_data.empty:
+        st.error("Please enter a valid team number.")
+        st.stop()
 
     fig = go.Figure()
     fig.add_trace(
@@ -63,13 +56,57 @@ def plot_team_scores(team_number, show_table=False):
     )
 
     st.plotly_chart(fig, width="stretch")
+
+
     if show_table:
-        st.dataframe(team_data)
+        pit_data = pd.read_sql(
+            f'SELECT * FROM "Pit Scouting" WHERE "Team #" = {team_number}',
+            conn
+        )
+
+        ucolumns = ['Timestamp', 'Name(s)', 'Team #', 'Climb', 'Processor Auto', 'Barge Auto', 'Center auto',
+                    'Auto Leave', 'Pictures']
+        pit_data.drop(columns=ucolumns, inplace=True)
+        team_data.drop(columns='Scouter Initials', inplace=True)
+        team_data.drop(columns='Team Number', inplace=True)
+
+        pit_data = pit_data.transpose()
+
+        auto = ['Auto PROCESSOR', 'Auto NET', 'Auto L1', 'Auto L2', 'Auto L3', 'Auto L4', 'Auto Score',
+                'Team Match Number']
+        teleop = ['PROCESSOR', 'NET', 'L1', 'L2', 'L3', 'L4', 'Teleop Score', 'Team Match Number']
+        endgame = ['Endgame Score', 'Team Match Number']
+
+        auto_data = team_data[auto]
+        auto_data.set_index("Team Match Number", inplace=True)
+        auto_data = auto_data.transpose()
+        auto_data['Averages'] = auto_data.mean(axis=1, numeric_only=True)
+
+        teleop_data = team_data[teleop]
+        teleop_data.set_index("Team Match Number", inplace=True)
+        teleop_data = teleop_data.transpose()
+        teleop_data['Averages'] = teleop_data.mean(axis=1, numeric_only=True)
+
+        endgame_data = team_data[endgame]
+        endgame_data.set_index("Team Match Number", inplace=True)
+        endgame_data = endgame_data.transpose()
+        endgame_data['Averages'] = endgame_data.mean(axis=1, numeric_only=True)
+
+        st.markdown("**Auto**")
+        st.dataframe(auto_data)
+        st.markdown("**Teleop**")
+        st.dataframe(teleop_data)
+        st.markdown("**Endgame**")
+        st.dataframe(endgame_data)
+        st.markdown("**Pit Data**")
         st.dataframe(pit_data)
+
+
 
 if st.sidebar.button("Refresh Values"):
     db.perform_calculations()
-dataType = st.sidebar.selectbox("View", ["Single Team", "Compare", "Averages", "Match Reference", "Bubble Chart"])
+
+dataType = st.sidebar.selectbox("View", ["Single Team", "Compare", "Averages", "Match Reference", "Bubble Chart", "Radar Chart"])
 
 
 if dataType.lower() == "single team":
@@ -79,13 +116,26 @@ if dataType.lower() == "single team":
         st.error("Please enter a valid integer team number.")
         st.stop()
 
-    df = pd.read_sql("SELECT * FROM 'Scouting_Data'", conn)
-    team_data = df[df['Team Number'] == teamNumber]
+    df = pd.read_sql(f'SELECT * FROM Calcs WHERE "Team Number" = {teamNumber}', conn)
 
-    if not team_data.empty:
-        plot_team_scores(teamNumber, True)
-    else:
-        st.warning(f"No Data for Team {teamNumber}")
+    fig = go.Figure(data=go.Scatterpolar(
+        r=[df['Total Score AVG'].loc[0], df['Teleop Score AVG'].loc[0], df['Auto Score AVG'].loc[0], df['Climb Score AVG'].loc[0]],
+        theta=['Total Score', 'Auto Score', 'Teleop Score', 'Climb Score'],
+        fill='toself'
+    ))
+
+    fig.update_layout(
+        polar=dict(
+            radialaxis=dict(
+                visible=True
+            ),
+        ),
+        showlegend=True
+    )
+
+    st.plotly_chart(fig)
+
+    plot_team_scores(teamNumber, True)
 
 
 elif dataType.lower() == "compare":
@@ -100,18 +150,11 @@ elif dataType.lower() == "compare":
                 st.error(f"Please enter a valid number for Team {i}.")
                 st.stop()
 
-    df = pd.read_sql("SELECT * FROM 'Scouting_Data'", conn)
-
     for i in range(0, len(teamNumbers), 3):
         columns = st.columns(3)
         for j, teamNumber in enumerate(teamNumbers[i:i + 3]):
-            team_data = df[df['Team Number'] == teamNumber]
-            if not team_data.empty:
-                with columns[j]:
-                    plot_team_scores(teamNumber)
-            else:
-                with columns[j]:
-                    st.warning(f"No Data for Team {teamNumber}")
+            with columns[j]:
+                plot_team_scores(teamNumber)
 
 elif dataType.lower() == "averages":
     df = pd.read_sql("SELECT * FROM Calcs", conn)
@@ -125,7 +168,7 @@ elif dataType.lower() == "averages":
     TotalColors = ["#252525", "#003003"]
     TotalCmap = mc.LinearSegmentedColormap.from_list("GreenGray", TotalColors)
 
-    AutoCols = ['Auto Coral AVG', 'Auto Score AVG']
+    AutoCols = ['Auto Net Algae AVG', 'Auto Processor Algae AVG', 'Auto Coral AVG', 'Auto Score AVG']
     TeleopCols = ['Teleop Net Algae AVG', 'Teleop Processor Algae AVG', 'Teleop Score AVG', 'Teleop Coral AVG']
     EndgameCols = ['Climb Score AVG']
     TotalCols = ['Total Score AVG']
@@ -246,5 +289,3 @@ elif dataType.lower() == "bubble chart":
         )
 
         st.plotly_chart(fig)
-
-
