@@ -3,6 +3,8 @@ import sqlite3
 import streamlit as st
 import plotly.graph_objects as go
 import matplotlib.colors as mc
+from pyasn1.type.univ import Null
+
 import db_calc as db
 
 
@@ -115,25 +117,6 @@ if dataType.lower() == "single team":
     except ValueError:
         st.error("Please enter a valid integer team number.")
         st.stop()
-
-    df = pd.read_sql(f'SELECT * FROM Calcs WHERE "Team Number" = {teamNumber}', conn)
-
-    fig = go.Figure(data=go.Scatterpolar(
-        r=[df['Total Score AVG'].loc[0], df['Teleop Score AVG'].loc[0], df['Auto Score AVG'].loc[0], df['Climb Score AVG'].loc[0]],
-        theta=['Total Score', 'Auto Score', 'Teleop Score', 'Climb Score'],
-        fill='toself'
-    ))
-
-    fig.update_layout(
-        polar=dict(
-            radialaxis=dict(
-                visible=True
-            ),
-        ),
-        showlegend=True
-    )
-
-    st.plotly_chart(fig)
 
     plot_team_scores(teamNumber, True)
 
@@ -289,3 +272,92 @@ elif dataType.lower() == "bubble chart":
         )
 
         st.plotly_chart(fig)
+
+elif dataType.lower() == "radar chart":
+    teamNumbers = []
+    for i in range(1, 7):
+        input_value = st.sidebar.text_input(f"Team {i}", "")
+        if input_value.strip():
+            try:
+                teamNumber = int(input_value)
+                teamNumbers.append(teamNumber)
+            except ValueError:
+                st.error(f"Please enter a valid number for Team {i}.")
+                st.stop()
+
+    df = pd.read_sql(f'SELECT * FROM "Normalized Data"', conn)
+    df.set_index("Team Number", inplace=True)
+
+    fig = go.Figure()
+    bgcolors = ["#353841", "#3f414d", "#494b5a", "#494b5a", "#58596a"]
+
+    for team in teamNumbers:
+        if team not in df.index:
+            st.warning(f"Team {team} not found in data.")
+            continue
+
+        values = [
+            df.loc[team, 'Normalized Auto'],
+            df.loc[team, 'Normalized Teleop'],
+            df.loc[team, 'Normalized Endgame'],
+            df.loc[team, 'Normalized Total'],
+        ]
+
+        labels = [
+            'Auto Score',
+            'Teleop Score',
+            'Climb Score',
+            'Total Score',
+        ]
+
+        values.append(values[0])
+        labels.append(labels[0])
+
+        fig.add_trace(go.Scatterpolar(
+            r=values,
+            theta=labels,
+            fill='toself',
+            name=f"Team {team}",
+            mode='lines',
+            line = dict(
+                shape="spline"
+            )
+        ))
+
+    fig.update_traces(
+        opacity=0.5
+    )
+
+    fig.update_polars(angularaxis_dtick='')
+    fig.update_polars(
+        radialaxis_showgrid=False,
+        radialaxis_gridwidth=0,
+        angularaxis_layer='above traces'
+    )
+
+    fig.update_layout(
+        plot_bgcolor="#0e1117",
+
+        polar=dict(
+            bgcolor="#0e1117",
+
+            radialaxis=dict(
+                gridcolor="rgba(255,255,255,0.15)",
+                tickfont=dict(color="white"),
+                linecolor="rgba(255,255,255,0.3)",
+                range=[0, 100],
+                showticklabels=True
+            ),
+
+            angularaxis=dict(
+                gridcolor="rgba(255,255,255,0.15)",
+                tickfont=dict(color="white"),
+                linecolor="rgba(255,255,255,0.3)"
+            )
+        ),
+
+        font=dict(color="white"),
+        showlegend=True,
+    )
+
+    st.plotly_chart(fig)

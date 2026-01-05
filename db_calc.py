@@ -109,7 +109,8 @@ def perform_calculations():
             'Teleop Processor Algae AVG': ('PROCESSOR', 'mean'),
             'Teleop Score AVG': ('Teleop Score', 'mean'),
             'Climb Score AVG': ('Endgame Score', 'mean'),
-            'Total Score AVG': ('Total Score', 'mean')
+            'Total Score AVG': ('Total Score', 'mean'),
+            'Total Score STDEV': ('Total Score', 'std'),
         }
     )
 
@@ -120,14 +121,30 @@ def perform_calculations():
         .merge(teleop_avg, on='Team Number')
     )
 
+    eps = 1e-6
+    peak = df['Total Score'].max()
+
+    calc_df['Consistency'] = (
+            1.0 - (calc_df['Total Score STDEV'] / (peak + eps))
+    ).clip(lower=0.0, upper=1.0)
+
 
     calc_df = calc_df[
-        ['Team Number', 'Auto Net Algae AVG', 'Auto Processor Algae AVG', 'Auto Coral AVG', 'Auto Score AVG', 'Teleop Net Algae AVG', 'Teleop Processor Algae AVG', 'Teleop Coral AVG', 'Teleop Score AVG', 'Climb Score AVG', 'Total Score AVG']
+        ['Team Number', 'Auto Net Algae AVG', 'Auto Processor Algae AVG', 'Auto Coral AVG', 'Auto Score AVG', 'Teleop Net Algae AVG', 'Teleop Processor Algae AVG', 'Teleop Coral AVG', 'Teleop Score AVG', 'Climb Score AVG', 'Total Score AVG', 'Total Score STDEV', 'Consistency']
     ]
+
+    norm_df = pd.DataFrame()
+    norm_df['Team Number'] = calc_df['Team Number']
+    norm_df['Normalized Auto'] = calc_df['Auto Score AVG'] * (100 / calc_df['Auto Score AVG'].max())
+    norm_df['Normalized Teleop'] = calc_df['Teleop Score AVG'] * (100 / calc_df['Teleop Score AVG'].max())
+    norm_df['Normalized Endgame'] = calc_df['Climb Score AVG'] * (100 / calc_df['Climb Score AVG'].max())
+    norm_df['Normalized Total'] = calc_df['Total Score AVG'] * (100 / calc_df['Total Score AVG'].max())
 
     calc_df = calc_df.round(2)
 
     tba_df = pd.read_csv("2025necmp2_schedule.csv", header=0)
+
+    write_to_db(norm_df, "Normalized Data")
 
     write_to_db(tba_df, "TBA Data")
 
