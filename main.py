@@ -7,12 +7,13 @@ from pyasn1.type.univ import Null
 
 import db_calc as db
 
-
+# Initialize database connection
 conn = sqlite3.connect("Scouting_Data.db")
 cursor = conn.cursor()
 
 st.set_page_config(layout="wide")
 
+# Function to retrieve data from the database
 def retrieve_data(data_type, team_number, match_number=None):
     if match_number is None:
         query = f'SELECT "{data_type}" FROM Scouting_Data WHERE "Team Number" = ?'
@@ -23,6 +24,7 @@ def retrieve_data(data_type, team_number, match_number=None):
     cursor.execute(query, params)
     return cursor.fetchall()
 
+# Function to color rows based on alliance
 def color_alliance(row):
     if row["Position"].startswith("RED"):
         return ["background-color: rgba(255, 0, 0, 0.15)"] * len(row)
@@ -30,7 +32,7 @@ def color_alliance(row):
         return ["background-color: rgba(0, 100, 255, 0.15)"] * len(row)
     return [""] * len(row)
 
-
+# Plots teams scores for different data types over matches
 def plot_team_scores(team_number, show_table=False):
     team_data = pd.read_sql(
         f"SELECT * FROM Scouting_Data WHERE `Team Number` = {team_number} ORDER BY `Team Match Number` ASC",
@@ -40,16 +42,18 @@ def plot_team_scores(team_number, show_table=False):
         st.error("Please enter a valid team number.")
         st.stop()
 
+    # Create line plot for team scores
     fig = go.Figure()
     fig.add_trace(
-        go.Scatter(x=team_data['Team Match Number'], y=team_data['Total Score'], mode='lines+markers', name='Total Score'))
+        go.Scatter(x=team_data['Team Match Number'], y=team_data['Total Score'], mode='lines+markers', name='Total Score', line=dict(shape='spline')))
     fig.add_trace(
-        go.Scatter(x=team_data['Team Match Number'], y=team_data['Auto Score'], mode='lines+markers', name='Auto Score'))
+        go.Scatter(x=team_data['Team Match Number'], y=team_data['Auto Score'], mode='lines+markers', name='Auto Score', line=dict(shape='spline')))
     fig.add_trace(
-        go.Scatter(x=team_data['Team Match Number'], y=team_data['Teleop Score'], mode='lines+markers', name='Teleop Score'))
+        go.Scatter(x=team_data['Team Match Number'], y=team_data['Teleop Score'], mode='lines+markers', name='Teleop Score', line=dict(shape='spline')))
     fig.add_trace(
-        go.Scatter(x=team_data['Team Match Number'], y=team_data['Endgame Score'], mode='lines+markers', name='Endgame Score'))
+        go.Scatter(x=team_data['Team Match Number'], y=team_data['Endgame Score'], mode='lines+markers', name='Endgame Score', line=dict(shape='spline')))
 
+    # Change axis titles and layout
     fig.update_layout(
         title=f"Team {team_number} Score Trend",
         xaxis_title="Match Number",
@@ -59,7 +63,7 @@ def plot_team_scores(team_number, show_table=False):
 
     st.plotly_chart(fig, width="stretch")
 
-
+    # Display data tables if requested
     if show_table:
         pit_data = pd.read_sql(
             f'SELECT * FROM "Pit Scouting" WHERE "Team #" = {team_number}',
@@ -104,7 +108,7 @@ def plot_team_scores(team_number, show_table=False):
         st.dataframe(pit_data)
 
 
-
+# Refresh database calculations
 if st.sidebar.button("Refresh Values"):
     db.perform_calculations()
 
@@ -124,6 +128,7 @@ if dataType.lower() == "single team":
 elif dataType.lower() == "compare":
     teamNumbers = []
     for i in range(1, 7):
+        # Creates input fields for up to 6 team numbers
         input_value = st.sidebar.text_input(f"Team {i}", "")
         if input_value.strip():
             try:
@@ -142,6 +147,7 @@ elif dataType.lower() == "compare":
 elif dataType.lower() == "averages":
     df = pd.read_sql("SELECT * FROM Calcs", conn)
 
+    # Define color maps for different scoring phase columns
     AutoColors = ["#252525", "#010014"]
     AutoCmap = mc.LinearSegmentedColormap.from_list("BlueGray", AutoColors)
     TeleopColors = ["#252525", "#301500"]
