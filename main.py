@@ -44,14 +44,48 @@ def plot_team_scores(team_number, show_table=False):
 
     # Create line plot for team scores
     fig = go.Figure()
-    fig.add_trace(
-        go.Scatter(x=team_data['Team Match Number'], y=team_data['Total Score'], mode='lines+markers', name='Total Score', line=dict(shape='spline')))
-    fig.add_trace(
-        go.Scatter(x=team_data['Team Match Number'], y=team_data['Auto Score'], mode='lines+markers', name='Auto Score', line=dict(shape='spline')))
-    fig.add_trace(
-        go.Scatter(x=team_data['Team Match Number'], y=team_data['Teleop Score'], mode='lines+markers', name='Teleop Score', line=dict(shape='spline')))
-    fig.add_trace(
-        go.Scatter(x=team_data['Team Match Number'], y=team_data['Endgame Score'], mode='lines+markers', name='Endgame Score', line=dict(shape='spline')))
+
+    if st.session_state.showTotal:
+        fig.add_trace(go.Scatter(
+            x=team_data['Team Match Number'],
+            y=team_data['Total Score'],
+            mode='lines+markers',
+            name='Total Score',
+            line=dict(shape='spline')
+        ))
+
+    if st.session_state.showAuto:
+        fig.add_trace(go.Scatter(
+            x=team_data['Team Match Number'],
+            y=team_data['Auto Score'],
+            mode='lines+markers',
+            name='Auto Score',
+            line=dict(shape='spline')
+        ))
+
+    if st.session_state.showTeleop:
+        fig.add_trace(go.Scatter(
+            x=team_data['Team Match Number'],
+            y=team_data['Teleop Score'],
+            mode='lines+markers',
+            name='Teleop Score',
+            line=dict(shape='spline')
+        ))
+
+    if st.session_state.showEndgame:
+        fig.add_trace(go.Scatter(
+            x=team_data['Team Match Number'],
+            y=team_data['Endgame Score'],
+            mode='lines+markers',
+            name='Endgame Score',
+            line=dict(shape='spline')
+        ))
+
+    fig.update_layout(
+        legend=dict(
+            groupclick="toggleitem"
+        )
+    )
 
     # Change axis titles and layout
     fig.update_layout(
@@ -126,6 +160,19 @@ if dataType.lower() == "single team":
 
 
 elif dataType.lower() == "compare":
+    st.sidebar.markdown("### Data Types")
+
+    if "showAuto" not in st.session_state:
+        st.session_state.showAuto = True
+        st.session_state.showTeleop = True
+        st.session_state.showEndgame = True
+        st.session_state.showTotal = True
+
+    st.session_state.showTotal = st.sidebar.checkbox("Total", st.session_state.showTotal)
+    st.session_state.showAuto = st.sidebar.checkbox("Auto", st.session_state.showAuto)
+    st.session_state.showTeleop = st.sidebar.checkbox("Teleop", st.session_state.showTeleop)
+    st.session_state.showEndgame = st.sidebar.checkbox("Endgame", st.session_state.showEndgame)
+
     teamNumbers = []
     for i in range(1, 7):
         # Creates input fields for up to 6 team numbers
