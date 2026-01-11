@@ -13,6 +13,17 @@ cursor = conn.cursor()
 
 st.set_page_config(layout="wide")
 
+default_states = {
+    "showTotal": True,
+    "showAuto": True,
+    "showTeleop": True,
+    "showEndgame": True,
+}
+
+for key, value in default_states.items():
+    if key not in st.session_state:
+        st.session_state[key] = value
+
 # Function to retrieve data from the database
 def retrieve_data(data_type, team_number, match_number=None):
     if match_number is None:
@@ -104,17 +115,13 @@ def plot_team_scores(team_number, show_table=False):
             conn
         )
 
-        ucolumns = ['Timestamp', 'Name(s)', 'Team #', 'Climb', 'Processor Auto', 'Barge Auto', 'Center auto',
-                    'Auto Leave', 'Pictures']
-        pit_data.drop(columns=ucolumns, inplace=True)
         team_data.drop(columns='Scouter Initials', inplace=True)
         team_data.drop(columns='Team Number', inplace=True)
 
         pit_data = pit_data.transpose()
 
-        auto = ['Auto PROCESSOR', 'Auto NET', 'Auto L1', 'Auto L2', 'Auto L3', 'Auto L4', 'Auto Score',
-                'Team Match Number']
-        teleop = ['PROCESSOR', 'NET', 'L1', 'L2', 'L3', 'L4', 'Teleop Score', 'Team Match Number']
+        auto = ['Auto Climb']
+        teleop = ['Fuel']
         endgame = ['Endgame Score', 'Team Match Number']
 
         auto_data = team_data[auto]
@@ -162,7 +169,7 @@ if dataType.lower() == "single team":
 elif dataType.lower() == "compare":
     st.sidebar.markdown("### Data Types")
 
-    if "showAuto" not in st.session_state:
+    if "showTotal" not in st.session_state:
         st.session_state.showAuto = True
         st.session_state.showTeleop = True
         st.session_state.showEndgame = True
@@ -204,11 +211,11 @@ elif dataType.lower() == "averages":
     TotalColors = ["#252525", "#003003"]
     TotalCmap = mc.LinearSegmentedColormap.from_list("GreenGray", TotalColors)
 
-    AutoCols = ['Auto Net Algae AVG', 'Auto Processor Algae AVG', 'Auto Coral AVG', 'Auto Score AVG']
-    TeleopCols = ['Teleop Net Algae AVG', 'Teleop Processor Algae AVG', 'Teleop Score AVG', 'Teleop Coral AVG']
+    AutoCols = ['Auto Climb AVG']
+    TeleopCols = ['Teleop Score AVG']
     EndgameCols = ['Climb Score AVG']
     TotalCols = ['Total Score AVG']
-    ScoringCols = ['Auto Coral AVG', 'Auto Score AVG', 'Teleop Net Algae AVG', 'Teleop Processor Algae AVG' ,'Teleop Score AVG', 'Climb Score AVG', 'Total Score AVG']
+    ScoringCols = ['Auto Climb AVG', 'Teleop Score AVG', 'Total Score AVG', 'Climb Score AVG']
 
     df = df.style.format("{:.2f}", subset=ScoringCols).background_gradient(cmap=AutoCmap, subset=AutoCols, axis=0).background_gradient(cmap=TeleopCmap, subset=TeleopCols, axis=0).background_gradient(cmap=EndgameCmap, subset=EndgameCols, axis=0).background_gradient(cmap=TotalCmap, subset=TotalCols, axis=0)
     st.dataframe(df)

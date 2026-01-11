@@ -3,33 +3,22 @@ import pandas as pd
 import sqlite3
 from google.oauth2.service_account import Credentials
 
+googleSheet = "Test Data"
+
 endgame_scores = {
-    "Deep Climb": 12,
-    "Shallow Climb": 6,
-    "Parked": 2,
+    "L3 Climb": 30,
+    "L2 Climb": 20,
+    "L1 Climb": 10,
     "Nothing": 0
 }
 
-leave_scores = {
-    "TRUE": 3,
-    "FALSE": 0
-}
-
 auto_scores = {
-    "Auto L4": 7,
-    "Auto L3": 6,
-    "Auto L2": 4,
-    "Auto L1": 3,
-    "Auto NET": 4,
+    "Yes": 15,
+    "No": 0
 }
 
 teleop_scores = {
-    "L4": 5,
-    "L3": 4,
-    "L2": 3,
-    "L1": 2,
-    "NET": 4,
-    "PROCESSOR": 2,
+    "Fuel": 1,
 }
 
 def write_to_db(dataframe, table_name):
@@ -48,22 +37,21 @@ def perform_calculations():
     )
 
     gc = gspread.authorize(creds)
-    spreadsheet = gc.open("Copy of NEW AMAZONG 2025 SCOUTING DASHBOARD!!!! (dcmp data)")
+    spreadsheet = gc.open(googleSheet)
     mdata_worksheet = spreadsheet.worksheet("Data Entry")
-    pdata_worksheet = spreadsheet.worksheet("Pit Scouting")
+    # pdata_worksheet = spreadsheet.worksheet("Pit Scouting")
     mdata = mdata_worksheet.get_all_records()
-    pdata = pdata_worksheet.get_all_records()
+    # pdata = pdata_worksheet.get_all_records()
     df = pd.DataFrame(mdata)
-    pdata_df = pd.DataFrame(pdata)
+    # pdata_df = pd.DataFrame(pdata)
 
-    df['Auto Score'] = pd.DataFrame(
-        {col: df[col].fillna(0) * weight for col, weight in auto_scores.items()}
-    ).sum(axis=1)
-    df['Auto Score'] += df['Leave (Did the robot move)?'].map(leave_scores).fillna(0)
+    print(df.columns)
 
-    df['Teleop Score'] = pd.DataFrame(
-        {col: df[col].fillna(0) * weight for col, weight in teleop_scores.items()}
-    ).sum(axis=1)
+
+    df['Auto Score'] = df['Auto Climb'].map(auto_scores).fillna(0)
+
+    df['Teleop Score'] = df[list(teleop_scores.keys())].fillna(0).mul(teleop_scores)
+
 
     df['Endgame Score'] = df['Endgame'].map(endgame_scores).fillna(0)
     df['Total Score'] = df['Auto Score'] + df['Teleop Score'] + df['Endgame Score']
@@ -81,32 +69,29 @@ def perform_calculations():
         .reset_index(name='Matches Played')
     )
 
+    # auto_cols = [
+    #     "Auto Score"
+    # ]
+    # auto_avg = (
+    #     df.groupby('Team Number')[auto_cols]
+    #     .mean()
+    #     .sum(axis=1)
+    #     .reset_index(name='Auto Climb AVG')
+    # )
 
-    auto_cols = ['Auto L1', 'Auto L2', 'Auto L3', 'Auto L4']
-    auto_avg = (
-        df.groupby('Team Number')[auto_cols]
-        .mean()
-        .sum(axis=1)
-        .reset_index(name='Auto Coral AVG')
-    )
-
-    teleop_cols = ['L1', 'L2', 'L3', 'L4']
-    teleop_avg = (
-        df.groupby('Team Number')[teleop_cols]
-        .mean()
-        .sum(axis=1)
-        .reset_index(name='Teleop Coral AVG')
-    )
+    # teleop_cols = ['Teleop Score']
+    # teleop_avg = (
+    #     df.groupby('Team Number')[teleop_cols]
+    #     .mean()
+    #     .sum(axis=1)
+    #     .reset_index(name='Teleop Score AVG')
+    # )
 
 
 
     calc_df = df.groupby('Team Number', as_index=False).agg(
         **{
             'Auto Score AVG': ('Auto Score', 'mean'),
-            'Auto Net Algae AVG': ('Auto NET', 'mean'),
-            'Auto Processor Algae AVG': ('Auto PROCESSOR', 'mean'),
-            'Teleop Net Algae AVG': ('NET', 'mean'),
-            'Teleop Processor Algae AVG': ('PROCESSOR', 'mean'),
             'Teleop Score AVG': ('Teleop Score', 'mean'),
             'Climb Score AVG': ('Endgame Score', 'mean'),
             'Total Score AVG': ('Total Score', 'mean'),
@@ -114,12 +99,12 @@ def perform_calculations():
         }
     )
 
-    calc_df = (
-        calc_df
-        .merge(auto_avg, on='Team Number')
-        .merge(team_counts, on='Team Number')
-        .merge(teleop_avg, on='Team Number')
-    )
+    # calc_df = (
+    #     calc_df
+    #     .merge(auto_avg, on='Team Number')
+    #     .merge(team_counts, on='Team Number')
+    #     .merge(teleop_avg, on='Team Number')
+    # )
 
     eps = 1e-6
     peak = df['Total Score'].max()
@@ -130,7 +115,7 @@ def perform_calculations():
 
 
     calc_df = calc_df[
-        ['Team Number', 'Auto Net Algae AVG', 'Auto Processor Algae AVG', 'Auto Coral AVG', 'Auto Score AVG', 'Teleop Net Algae AVG', 'Teleop Processor Algae AVG', 'Teleop Coral AVG', 'Teleop Score AVG', 'Climb Score AVG', 'Total Score AVG', 'Total Score STDEV', 'Consistency']
+        ['Team Number', 'Auto Score AVG', 'Teleop Score AVG', 'Climb Score AVG', 'Total Score AVG', 'Total Score STDEV', 'Consistency']
     ]
 
     norm_df = pd.DataFrame()
@@ -142,16 +127,16 @@ def perform_calculations():
 
     calc_df = calc_df.round(2)
 
-    tba_df = pd.read_csv("2025necmp2_schedule.csv", header=0)
+    # tba_df = pd.read_csv("2025necmp2_schedule.csv", header=0)
 
     write_to_db(norm_df, "Normalized Data")
 
-    write_to_db(tba_df, "TBA Data")
+    # write_to_db(tba_df, "TBA Data")
 
     write_to_db(calc_df, "Calcs")
 
     write_to_db(df, "Scouting_Data")
 
-    write_to_db(pdata_df, "Pit Scouting")
+    # write_to_db(pdata_df, "Pit Scouting")
 
 perform_calculations()
